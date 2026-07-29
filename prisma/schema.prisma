@@ -120,6 +120,22 @@ model Payment {
   createdAt      DateTime @default(now())
 
   commission Commission?
+  refunds    Refund[]
+}
+
+// Refunds always return to the originating payment's method/reference —
+// never cross-instrument. RefundStatus (no enum in SQLite/simplicity):
+// PENDING, SUCCEEDED, FAILED
+model Refund {
+  id             String   @id @default(cuid())
+  paymentId      String
+  payment        Payment  @relation(fields: [paymentId], references: [id])
+  idempotencyKey String   @unique
+  amountMinor    Int
+  reason         String
+  status         String   @default("PENDING")
+  reference      String
+  createdAt      DateTime @default(now())
 }
 
 model Commission {

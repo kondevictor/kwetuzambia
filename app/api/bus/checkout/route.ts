@@ -26,7 +26,11 @@ export async function POST(req: Request) {
     const booking = await prisma.$transaction(async (tx) => {
       const seats = await tx.seat.findMany({ where: { tripId, seatNo: { in: seatNos } } });
       if (seats.length !== seatNos.length) throw new Error("SEAT_NOT_FOUND");
-      const unavailable = seats.filter((s) => s.status !== "AVAILABLE");
+      // Bookable if AVAILABLE, or HELD by (presumably) this same shopper and not yet expired —
+      // the hold step (see app/api/bus/hold) exists to prevent two shoppers reaching this point
+      // for the same seat; an expired hold is treated as unavailable until re-held.
+      const now = new Date();
+      const unavailable = seats.filter((s) => !(s.status === "AVAILABLE" || (s.status === "HELD" && s.heldUntil && s.heldUntil > now)));
       if (unavailable.length > 0) throw new Error("SEAT_TAKEN");
 
       const totalMinor = trip.basePriceMinor * seatNos.length;

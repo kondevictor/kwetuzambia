@@ -23,9 +23,22 @@ export interface ChargeResult {
  *
  * See BUILD_GUIDE.md "Swapping Mock payments -> pawaPay".
  */
+export interface RefundRequest {
+  originalReference: string;
+  amountMinor: number;
+  idempotencyKey: string;
+}
+
+export interface RefundResult {
+  status: "SUCCEEDED" | "FAILED";
+  reference: string;
+}
+
 export interface PaymentProvider {
   name: string;
   charge(req: ChargeRequest): Promise<ChargeResult>;
+  /** Refunds always return to the ORIGINATING instrument — never cross-instrument. */
+  refund(req: RefundRequest): Promise<RefundResult>;
 }
 
 /**
@@ -43,6 +56,10 @@ export class MockMoneyProvider implements PaymentProvider {
       reference: `MOCK-${randomUUID().slice(0, 8).toUpperCase()}`,
       provider: this.name,
     };
+  }
+
+  async refund(req: RefundRequest): Promise<RefundResult> {
+    return { status: "SUCCEEDED", reference: `MOCK-RFD-${randomUUID().slice(0, 8).toUpperCase()}` };
   }
 }
 

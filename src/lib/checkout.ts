@@ -4,6 +4,65 @@ import { getPaymentProvider, PaymentMethod } from "./payments";
 import { postLedgerTransaction, getOrCreatePlatformAccount, getOrCreateUserWalletAccount } from "./ledger";
 import { LedgerAccountType } from "./ledgerAccountTypes";
 
+/**
+ * Refunds always return to the payment's ORIGINATING method/reference — never
+ * cross-instrument (e.g. never "refund to wallet" a card payment). The ledger
+ * is corrected with a new reversing transaction, not by editing the original
+ * entries — postings are append-only/immutable by convention throughout this
+ * codebase (see ledger.ts).
+ */
+export async function runRefund(params: { paymentId: string; reason: string; idempotencyKey: string }) {
+  const payment = await prisma.payment.findUnique({ where: { id: params.paymentId }, include: { commission: true } });
+  if (!payment) throw new Error("Payment not found");
+  if (payment.status !== "SUCCEEDED") throw new Error("Only succeeded payments can be refunded");
+
+  const provider = getPaymentProvider();
+  const refundResult = await provider.refund({
+    originalReference: payment.reference,
+    amountMinor: payment.amountMinor,
+    idempotencyKey: params.idempotencyKey,
+  });
+
+  const refund = await prisma.refund.create({
+    data: {
+      paymentId: payment.id,
+      idempotencyKey: params.idempotencyKey,
+      amountMinor: payment.amountMinor,
+      reason: params.reason,
+      status: refundResult.status,
+      reference: refundResult.reference,
+    },
+  });
+
+  if (refundResult.status === "SUCCEEDED") {
+    const cashClearing = await getOrCreatePlatformAccount(LedgerAccountType.CASH_CLEARING, "Cash Clearing");
+    const supplierPayable = await getOrCreatePlatformAccount(LedgerAccountType.SUPPLIER_PAYABLE, "Supplier Payable");
+    const revenue = await getOrCreatePlatformAccount(LedgerAccountType.KWETU_REVENUE, "Kwetu Revenue");
+    const vatPayable = await getOrCreatePlatformAccount(LedgerAccountType.KWETU_VAT_PAYABLE, "Kwetu VAT Payable");
+
+    const c = payment.commission;
+    const lines = c
+      ? [
+          { accountId: supplierPayable.id, direction: "DEBIT" as const, amountMinor: c.baseAmountMinor },
+          { accountId: revenue.id, direction: "DEBIT" as const, amountMinor: c.commissionAmountMinor },
+          { accountId: vatPayable.id, direction: "DEBIT" as const, amountMinor: c.vatAmountMinor },
+          { accountId: cashClearing.id, direction: "CREDIT" as const, amountMinor: payment.amountMinor },
+        ].filter((l) => l.amountMinor > 0)
+      : [
+          { accountId: revenue.id, direction: "DEBIT" as const, amountMinor: payment.amountMinor },
+          { accountId: cashClearing.id, direction: "CREDIT" as const, amountMinor: payment.amountMinor },
+        ];
+
+    await postLedgerTransaction(prisma, {
+      idempotencyKey: `refund-${params.idempotencyKey}`,
+      description: `Refund for payment ${payment.id}: ${params.reason}`,
+      lines,
+    });
+  }
+
+  return refund;
+}
+
 export interface CheckoutParams {
   userId: string;
   vertical: keyof typeof COMMISSION_RATES;

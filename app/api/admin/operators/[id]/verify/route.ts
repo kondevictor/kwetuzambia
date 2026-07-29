@@ -1,0 +1,15 @@
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
+
+export async function POST(_req: Request, { params }: { params: { id: string } }) {
+  const session = await getServerSession(authOptions);
+  if (!session?.user || (session.user as any).role !== "ADMIN") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+  const operator = await prisma.operator.findUnique({ where: { id: params.id } });
+  if (!operator) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const updated = await prisma.operator.update({ where: { id: params.id }, data: { verified: !operator.verified } });
+  return NextResponse.json(updated);
+}

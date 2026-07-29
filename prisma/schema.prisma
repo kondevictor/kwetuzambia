@@ -1,0 +1,390 @@
+// Kwetu Zambia — Prisma schema
+// NOTE: SQLite for zero-config local dev. Written to be Postgres-compatible —
+// see BUILD_GUIDE.md "Swapping SQLite -> Postgres" for the one-line datasource change.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Identity ----------
+
+// Role values (SQLite has no enum support): CONSUMER, SUPPLIER, ADMIN
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         String   @default("CONSUMER")
+  phone        String?  @unique
+  verified     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  wallet            Wallet?
+  bookingsBus       BusBooking[]
+  stayBookings      StayBooking[]
+  eventTickets      EventTicket[]
+  serviceBookings   ServiceBooking[]
+  insurancePolicies InsurancePolicy[]
+  operators         Operator[]        @relation("OperatorOwner")
+  properties        Property[]        @relation("PropertyOwner")
+  events            Event[]           @relation("EventOwner")
+  serviceListings   ServiceListing[]  @relation("ServiceOwner")
+  rentalListings    PropertyListing[] @relation("RentalOwner")
+  landListings      LandListing[]     @relation("LandOwner")
+  referralClicks    ReferralClick[]
+  ledgerAccount     LedgerAccount?
+}
+
+// ---------- Phone + OTP auth ----------
+// Simulated SMS delivery (no real gateway configured) — same pattern as
+// MockMoneyProvider: the code is deterministic in dev so the flow is
+// demoable without a real SMS provider. See BUILD_GUIDE.md "Non-goals".
+
+model PhoneOtp {
+  id        String    @id @default(cuid())
+  phone     String
+  code      String
+  expiresAt DateTime
+  consumed  Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  @@index([phone])
+}
+
+// ---------- Wallet / Loyalty ----------
+
+model Wallet {
+  id                     String   @id @default(cuid())
+  userId                 String   @unique
+  user                   User     @relation(fields: [userId], references: [id])
+  balanceMinor           Int      @default(0) // ZMW cents
+  loyaltyPoints          Int      @default(0)
+  completedBookingsCount Int      @default(0) // used for every-5th-booking fee waiver
+  updatedAt              DateTime @updatedAt
+}
+
+// ---------- Double-entry ledger ----------
+
+// LedgerAccountType values (SQLite has no enum support): USER_WALLET, SUPPLIER_PAYABLE, KWETU_REVENUE, KWETU_VAT_PAYABLE, INSURER_PAYABLE, REFERRAL_PAYABLE, CASH_CLEARING // represents inbound customer payment rail (mobile money/card)
+
+model LedgerAccount {
+  id        String        @id @default(cuid())
+  type      String
+  name      String
+  userId    String?       @unique
+  user      User?         @relation(fields: [userId], references: [id])
+  entries   LedgerEntry[]
+  createdAt DateTime      @default(now())
+}
+
+model LedgerTransaction {
+  id             String        @id @default(cuid())
+  idempotencyKey String        @unique
+  description    String
+  entries        LedgerEntry[]
+  createdAt      DateTime      @default(now())
+}
+
+model LedgerEntry {
+  id             String            @id @default(cuid())
+  transactionId  String
+  transaction    LedgerTransaction @relation(fields: [transactionId], references: [id])
+  accountId      String
+  account        LedgerAccount     @relation(fields: [accountId], references: [id])
+  direction      String // "DEBIT" | "CREDIT"
+  amountMinor    Int // always positive, ZMW cents
+  runningBalance Int // account balance after this entry, in cents
+  createdAt      DateTime          @default(now())
+
+  @@index([accountId])
+}
+
+// ---------- Payments / Commission ----------
+
+// PaymentStatus values (SQLite has no enum support): PENDING, SUCCEEDED, FAILED
+
+model Payment {
+  id             String   @id @default(cuid())
+  idempotencyKey String   @unique
+  provider       String // "MockMoneyProvider"
+  method         String // AIRTEL_MONEY | MTN_MONEY | ZAMTEL_KWACHA | CARD
+  status         String   @default("PENDING")
+  amountMinor    Int
+  reference      String
+  createdAt      DateTime @default(now())
+
+  commission Commission?
+}
+
+model Commission {
+  id                    String   @id @default(cuid())
+  paymentId             String   @unique
+  payment               Payment  @relation(fields: [paymentId], references: [id])
+  vertical              String
+  baseAmountMinor       Int // supplier's price
+  commissionAmountMinor Int // Kwetu fee added on top (pre-VAT)
+  vatAmountMinor        Int // 16% VAT on the commission
+  totalAmountMinor      Int // base + commission + VAT = what customer pays
+  ratePct               Float
+  createdAt             DateTime @default(now())
+}
+
+// ---------- Vertical 1: Intercity bus travel ----------
+
+model Operator {
+  id        String   @id @default(cuid())
+  name      String
+  ownerId   String
+  owner     User     @relation("OperatorOwner", fields: [ownerId], references: [id])
+  verified  Boolean  @default(false)
+  routes    Route[]
+  createdAt DateTime @default(now())
+}
+
+model Route {
+  id          String   @id @default(cuid())
+  operatorId  String
+  operator    Operator @relation(fields: [operatorId], references: [id])
+  origin      String
+  destination String
+  trips       Trip[]
+}
+
+model Trip {
+  id             String       @id @default(cuid())
+  routeId        String
+  route          Route        @relation(fields: [routeId], references: [id])
+  departAt       DateTime
+  arriveAt       DateTime
+  basePriceMinor Int
+  busPlate       String
+  totalSeats     Int          @default(44)
+  seats          Seat[]
+  bookings       BusBooking[]
+}
+
+// SeatStatus values (SQLite has no enum support): AVAILABLE, HELD, BOOKED
+
+model Seat {
+  id        String      @id @default(cuid())
+  tripId    String
+  trip      Trip        @relation(fields: [tripId], references: [id])
+  seatNo    String
+  status    String      @default("AVAILABLE")
+  heldUntil DateTime?
+  bookingId String?
+  booking   BusBooking? @relation(fields: [bookingId], references: [id])
+
+  @@unique([tripId, seatNo])
+}
+
+// BookingStatus values (SQLite has no enum support): PENDING_PAYMENT, CONFIRMED, CANCELLED
+
+model BusBooking {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  tripId        String
+  trip          Trip     @relation(fields: [tripId], references: [id])
+  seats         Seat[]
+  status        String   @default("PENDING_PAYMENT")
+  passengerName String
+  totalMinor    Int
+  paymentId     String?
+  feeWaived     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+}
+
+// ---------- Vertical 2: Accommodation ----------
+
+model Property {
+  id          String   @id @default(cuid())
+  ownerId     String
+  owner       User     @relation("PropertyOwner", fields: [ownerId], references: [id])
+  name        String
+  city        String
+  description String
+  verified    Boolean  @default(false)
+  rooms       Room[]
+  createdAt   DateTime @default(now())
+}
+
+model Room {
+  id                String        @id @default(cuid())
+  propertyId        String
+  property          Property      @relation(fields: [propertyId], references: [id])
+  type              String
+  ratePerNightMinor Int
+  quantity          Int           @default(1)
+  bookings          StayBooking[]
+}
+
+model StayBooking {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  roomId     String
+  room       Room     @relation(fields: [roomId], references: [id])
+  checkIn    DateTime
+  checkOut   DateTime
+  status     String   @default("PENDING_PAYMENT")
+  totalMinor Int
+  paymentId  String?
+  feeWaived  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+}
+
+// ---------- Vertical 3: Event ticketing ----------
+
+model Event {
+  id          String       @id @default(cuid())
+  ownerId     String
+  owner       User         @relation("EventOwner", fields: [ownerId], references: [id])
+  name        String
+  venue       String
+  startsAt    DateTime
+  verified    Boolean      @default(false)
+  ticketTiers TicketTier[]
+  createdAt   DateTime     @default(now())
+}
+
+model TicketTier {
+  id         String        @id @default(cuid())
+  eventId    String
+  event      Event         @relation(fields: [eventId], references: [id])
+  name       String
+  priceMinor Int
+  quantity   Int
+  sold       Int           @default(0)
+  tickets    EventTicket[]
+}
+
+model EventTicket {
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+  ticketTierId String
+  ticketTier   TicketTier @relation(fields: [ticketTierId], references: [id])
+  qrCode       String     @unique
+  status       String     @default("PENDING_PAYMENT")
+  totalMinor   Int
+  paymentId    String?
+  feeWaived    Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+}
+
+// ---------- Vertical 4: Local services marketplace ----------
+
+model ServiceListing {
+  id          String           @id @default(cuid())
+  ownerId     String
+  owner       User             @relation("ServiceOwner", fields: [ownerId], references: [id])
+  title       String
+  category    String
+  description String
+  priceMinor  Int
+  verified    Boolean          @default(false)
+  bookings    ServiceBooking[]
+  createdAt   DateTime         @default(now())
+}
+
+// ServiceJobStatus values (SQLite has no enum support): REQUESTED, ACCEPTED, COMPLETED, CANCELLED
+
+model ServiceBooking {
+  id         String         @id @default(cuid())
+  userId     String
+  user       User           @relation(fields: [userId], references: [id])
+  listingId  String
+  listing    ServiceListing @relation(fields: [listingId], references: [id])
+  status     String         @default("REQUESTED")
+  totalMinor Int
+  paymentId  String?
+  feeWaived  Boolean        @default(false)
+  createdAt  DateTime       @default(now())
+}
+
+// ---------- Vertical 5: Property rental placement ----------
+
+// ListingPeriod values (SQLite has no enum support): DAYS_7, DAYS_14, DAYS_30
+
+model PropertyListing {
+  id                String    @id @default(cuid())
+  ownerId           String
+  owner             User      @relation("RentalOwner", fields: [ownerId], references: [id])
+  title             String
+  city              String
+  monthlyRentMinor  Int
+  description       String
+  contactPhone      String
+  period            String    @default("DAYS_14")
+  placementFeeMinor Int
+  paidUntil         DateTime?
+  verified          Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+}
+
+// ---------- Vertical 6: Land sales listings ----------
+
+model LandListing {
+  id                String    @id @default(cuid())
+  ownerId           String
+  owner             User      @relation("LandOwner", fields: [ownerId], references: [id])
+  title             String
+  location          String
+  sizeAcres         Float
+  priceMinor        Int
+  description       String
+  contactPhone      String
+  placementFeeMinor Int
+  paidUntil         DateTime?
+  verified          Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+}
+
+// ---------- Vertical 7: Travel & micro-insurance ----------
+
+model InsuranceQuote {
+  id              String           @id @default(cuid())
+  productType     String // "TRAVEL" | "ACCOMMODATION_ADDON"
+  premiumMinor    Int
+  coverageSummary String
+  createdAt       DateTime         @default(now())
+  policy          InsurancePolicy?
+}
+
+model InsurancePolicy {
+  id        String         @id @default(cuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id])
+  quoteId   String         @unique
+  quote     InsuranceQuote @relation(fields: [quoteId], references: [id])
+  status    String         @default("BOUND") // BOUND | CLAIMED | EXPIRED
+  paymentId String?
+  createdAt DateTime       @default(now())
+}
+
+// ---------- Vertical 8: Partner referrals ----------
+
+model ReferralPartner {
+  id          String          @id @default(cuid())
+  name        String // e.g. "Yango"
+  category    String // RIDES | FOOD | PARCEL
+  outboundUrl String
+  ratePct     Float           @default(4.0)
+  clicks      ReferralClick[]
+}
+
+model ReferralClick {
+  id        String          @id @default(cuid())
+  partnerId String
+  partner   ReferralPartner @relation(fields: [partnerId], references: [id])
+  userId    String?
+  user      User?           @relation(fields: [userId], references: [id])
+  createdAt DateTime        @default(now())
+}

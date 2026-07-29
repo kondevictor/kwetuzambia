@@ -1,0 +1,10 @@
+{
+  "name": "Kwetu",
+  "short_name": "Kwetu",
+  "description": "Everything You Need, Right Here.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FBF7F0",
+  "theme_color": "#0B5D3B",
+  "icons": []
+}

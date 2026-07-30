@@ -1,0 +1,69 @@
+{
+  "functions": {
+    "**/*.php": { "runtime": "vercel-php@0.7.2" }
+  },
+  "routes": [
+    { "src": "/bus/([^/]+)/confirmation", "dest": "/bus-confirmation.php?id=$1" },
+    { "src": "/bus/([^/]+)",              "dest": "/bus-detail.php?id=$1" },
+    { "src": "/stays/([^/]+)",            "dest": "/stays-detail.php?id=$1" },
+
+    { "src": "/api/auth/login",           "dest": "/api/auth/login.php" },
+    { "src": "/api/auth/logout",          "dest": "/api/auth/logout.php" },
+    { "src": "/api/auth/otp/request",     "dest": "/api/auth/otp-request.php" },
+    { "src": "/api/auth/otp/verify",      "dest": "/api/auth/otp-verify.php" },
+    { "src": "/api/auth/register",        "dest": "/api/auth/register.php" },
+    { "src": "/api/register",             "dest": "/api/auth/register.php" },
+
+    { "src": "/api/bus/search",           "dest": "/api/bus/search.php" },
+    { "src": "/api/bus/hold",             "dest": "/api/bus/hold.php" },
+    { "src": "/api/bus/checkout",         "dest": "/api/bus/checkout.php" },
+    { "src": "/api/bus/trips/([^/]+)",    "dest": "/api/bus/trip.php?id=$1" },
+    { "src": "/api/bus/booking/([^/]+)",  "dest": "/api/bus/booking.php?id=$1" },
+
+    { "src": "/api/stays/search",                 "dest": "/api/stays/search.php" },
+    { "src": "/api/stays/property/([^/]+)",       "dest": "/api/stays/property.php?id=$1" },
+    { "src": "/api/stays/checkout",               "dest": "/api/stays/checkout.php" },
+
+    { "src": "/api/events",                       "dest": "/api/events/list.php" },
+    { "src": "/api/events/checkout",              "dest": "/api/events/checkout.php" },
+
+    { "src": "/api/services",                     "dest": "/api/services/list.php" },
+    { "src": "/api/services/checkout",            "dest": "/api/services/checkout.php" },
+
+    { "src": "/api/insurance/quote",              "dest": "/api/insurance/quote.php" },
+    { "src": "/api/insurance/bind",               "dest": "/api/insurance/bind.php" },
+
+    { "src": "/api/land/pay",                        "dest": "/api/land/pay.php" },
+    { "src": "/api/rentals/pay",                     "dest": "/api/rentals/pay.php" },
+
+    { "src": "/api/partners",                     "dest": "/api/partners/list.php" },
+    { "src": "/api/partners/([^/]+)/click",       "dest": "/api/partners/click.php?id=$1" },
+
+    { "src": "/api/me/dashboard",                 "dest": "/api/me/dashboard.php" },
+
+    { "src": "/api/supplier/summary",             "dest": "/api/supplier/summary.php" },
+    { "src": "/api/supplier/bus/bulk",            "dest": "/api/supplier/bus-bulk.php" },
+    { "src": "/api/supplier/bus",                 "dest": "/api/supplier/bus.php" },
+    { "src": "/api/supplier/property",            "dest": "/api/supplier/property.php" },
+    { "src": "/api/supplier/event",               "dest": "/api/supplier/event.php" },
+    { "src": "/api/supplier/service",             "dest": "/api/supplier/service.php" },
+    { "src": "/api/supplier/payouts",             "dest": "/api/supplier/payouts.php" },
+
+    { "src": "/api/admin/summary",                "dest": "/api/admin/summary.php" },
+    { "src": "/api/admin/operators/([^/]+)/verify","dest": "/api/admin/operator-verify.php?id=$1" },
+    { "src": "/api/admin/operators",              "dest": "/api/admin/operators.php" },
+    { "src": "/api/admin/payments/([^/]+)/refund","dest": "/api/admin/refund.php?id=$1" },
+    { "src": "/api/admin/reconciliation",         "dest": "/api/admin/reconciliation.php" },
+
+    { "src": "/api/chatbot",                      "dest": "/api/chatbot.php" },
+    { "src": "/api/ussd",                         "dest": "/api/ussd.php" },
+
+    { "src": "/(bus|stays|events|services|rentals|land|insurance|partners|dashboard|login|register|supplier|admin|ussd)(/?)", "dest": "/$1.php" },
+    { "src": "/login/phone",                      "dest": "/login-phone.php" },
+    { "src": "/",                                 "dest": "/index.php" }
+  ],
+  "env": {
+    "DATABASE_URL": "@database_url",
+    "NEXTAUTH_SECRET": "@nextauth_secret"
+  }
+}

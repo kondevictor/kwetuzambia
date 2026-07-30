@@ -4,22 +4,35 @@ require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/money.php';
 require_once __DIR__ . '/../../includes/loyalty.php';
 
-if (!method_is('POST')) { json_out(['error'=>'Method not allowed'], 405); }
+if (!method_is('POST')) { header('Location: /register'); exit; }
 
-$data  = body();
+$ct = $_SERVER['CONTENT_TYPE'] ?? '';
+if (str_contains($ct, 'application/json')) {
+    $data = body();
+    $is_json = true;
+} else {
+    $data = $_POST;
+    $is_json = false;
+}
+
 $name  = trim($data['name'] ?? '');
 $email = strtolower(trim($data['email'] ?? ''));
 $phone = trim($data['phone'] ?? '');
 $pass  = $data['password'] ?? '';
 
-if (!$name || !$email || !$pass) { json_out(['error'=>'Name, email and password required'], 400); }
-if (!filter_var($email, FILTER_VALIDATE_EMAIL)) { json_out(['error'=>'Invalid email'], 400); }
-if (strlen($pass) < 8) { json_out(['error'=>'Password must be at least 8 characters'], 400); }
+function reg_err(bool $is_json, string $msg): void {
+    if ($is_json) { json_out(['error'=>$msg], 400); }
+    header('Location: /register?error=' . urlencode($msg)); exit;
+}
+
+if (!$name || !$email || !$pass) reg_err($is_json, 'Name, email and password required');
+if (!filter_var($email, FILTER_VALIDATE_EMAIL)) reg_err($is_json, 'Invalid email');
+if (strlen($pass) < 8) reg_err($is_json, 'Password must be at least 8 characters');
 
 $pdo = db();
 $exists = $pdo->prepare('SELECT id FROM "User" WHERE email = ?');
 $exists->execute([$email]);
-if ($exists->fetch()) { json_out(['error'=>'Email already registered'], 409); }
+if ($exists->fetch()) reg_err($is_json, 'Email already registered');
 
 $id   = cuid();
 $hash = password_hash($pass, PASSWORD_BCRYPT);
@@ -27,9 +40,8 @@ $hash = password_hash($pass, PASSWORD_BCRYPT);
 $pdo->prepare('INSERT INTO "User" (id, name, email, phone, "passwordHash", role, "createdAt") VALUES (?,?,?,?,?,\'CONSUMER\',NOW())')
     ->execute([$id, $name, $email, $phone ?: null, $hash]);
 
-// Create wallet + grant welcome bonus
 $wid = cuid();
-$pdo->prepare('INSERT INTO "Wallet" (id, "userId", "balanceMinor", "loyaltyPoints", "completedBookingsCount", "updatedAt") VALUES (?,?,0,?,0,NOW())')
+$pdo->prepare('INSERT INTO "Wallet" (id, "userId", "loyaltyPoints", "updatedAt") VALUES (?,?,?,NOW())')
     ->execute([$wid, $id, WELCOME_BONUS_POINTS]);
 
 $user = $pdo->prepare('SELECT * FROM "User" WHERE id = ?');
@@ -37,4 +49,7 @@ $user->execute([$id]);
 $user = $user->fetch();
 
 auth_set_cookie($user);
-json_out(['ok'=>true,'name'=>$user['name'],'role'=>$user['role']], 201);
+
+if ($is_json) json_out(['ok'=>true,'name'=>$user['name'],'role'=>$user['role']], 201);
+header('Location: /dashboard');
+exit;

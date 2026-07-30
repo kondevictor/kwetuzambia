@@ -113,10 +113,8 @@ async function sendChat(text) {
   document.getElementById('chat-input').value = '';
   const r = await fetch('/api/chatbot.php', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:text})});
   const d = await r.json();
-  msgs.innerHTML += `<div class="bot-msg" style="background:#fff;border:1px solid rgba(0,0,0,.05);border-radius:.5rem;padding:.5rem .75rem;font-size:.875rem;color:#334155;max-width:85%;">${d.text}</div>`;
+  msgs.innerHTML += `<div class="bot-msg" style="background:#fff;border:1px solid rgba(0,0,0,.05);border-radius:.5rem;padding:.5rem .75rem;font-size:.875rem;color:#334155;max-width:85%;">${(d.reply||'').replace(/\n/g,'<br>')}</div>`;
   msgs.scrollTop = msgs.scrollHeight;
-  const chips = document.getElementById('chat-suggestions');
-  chips.innerHTML = (d.suggestions||[]).map(s=>`<button onclick="sendChat('${s.replace(/'/g,"\\'")}')" class="chat-chip">${s}</button>`).join('');
 }
 function submitChat(e) { e.preventDefault(); sendChat(document.getElementById('chat-input').value.trim()); }
 </script>

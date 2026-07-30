@@ -34,20 +34,22 @@ if (!$op) {
 }
 
 $routeId = cuid();
-$pdo->prepare('INSERT INTO "Route" (id, "operatorId", origin, destination, "createdAt", "updatedAt") VALUES (?,?,?,?,NOW(),NOW())')
+$pdo->prepare('INSERT INTO "Route" (id, "operatorId", origin, destination) VALUES (?,?,?,?)')
     ->execute([$routeId, $op['id'], $origin, $destination]);
 
 $tripId       = cuid();
 $priceMinor   = (int)round($priceZmw * 100);
 $departTs     = date('Y-m-d H:i:s', strtotime($departAt));
-$pdo->prepare('INSERT INTO "Trip" (id, "routeId", "busPlate", "departAt", "basePriceMinor", "totalSeats", "createdAt", "updatedAt") VALUES (?,?,?,?,?,?,NOW(),NOW())')
-    ->execute([$tripId, $routeId, $plate, $departTs, $priceMinor, $totalSeats]);
+// arriveAt = departAt + 4 hours (default estimate)
+$arriveTs = date('Y-m-d H:i:s', strtotime($departTs) + 4*3600);
+$pdo->prepare('INSERT INTO "Trip" (id, "routeId", "busPlate", "departAt", "arriveAt", "basePriceMinor", "totalSeats") VALUES (?,?,?,?,?,?,?)')
+    ->execute([$tripId, $routeId, $plate, $departTs, $arriveTs, $priceMinor, $totalSeats]);
 
 // Create seats A1–Z99 up to totalSeats
 for ($i = 1; $i <= $totalSeats; $i++) {
     $seatId = cuid();
     $seatNo = (string)$i;
-    $pdo->prepare('INSERT INTO "Seat" (id, "tripId", "seatNo", status, "createdAt", "updatedAt") VALUES (?,?,?,\'AVAILABLE\',NOW(),NOW())')
+    $pdo->prepare('INSERT INTO "Seat" (id, "tripId", "seatNo", status) VALUES (?,?,?,\'AVAILABLE\')')
         ->execute([$seatId, $tripId, $seatNo]);
 }
 

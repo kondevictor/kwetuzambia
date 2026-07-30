@@ -57,25 +57,23 @@ try {
     $idempotency = 'bus-' . $bookingId;
 
     $result = run_checkout(
-        userId: $user['id'],
-        vertical: 'BUS',
-        baseAmountMinor: $bd['baseAmountMinor'] * $n,
-        commissionAmountMinor: $bd['commissionAmountMinor'] * $n,
-        vatAmountMinor: $bd['vatAmountMinor'] * $n,
-        method: $method,
-        msisdnOrCardRef: $msisdn,
-        idempotencyKey: $idempotency,
-        description: "Bus booking {$trip['origin']} → {$trip['destination']} x$n seats"
+        $user['id'],
+        'BUS',
+        $bd['baseAmountMinor'] * $n,
+        $method,
+        $msisdn,
+        $idempotency,
+        "Bus booking {$trip['origin']} → {$trip['destination']} x$n seats"
     );
 
     $feeWaived = $result['feeWaived'];
 
-    $pdo->prepare('INSERT INTO "BusBooking" (id, "userId", "tripId", "passengerName", "totalMinor", "feeWaived", status, "createdAt", "updatedAt") VALUES (?,?,?,?,?,?,\'CONFIRMED\',NOW(),NOW())')
+    $pdo->prepare('INSERT INTO "BusBooking" (id, "userId", "tripId", "passengerName", "totalMinor", "feeWaived", status, "createdAt") VALUES (?,?,?,?,?,?,\'CONFIRMED\',NOW())')
         ->execute([$bookingId, $user['id'], $tripId, $passengerName, $total, $feeWaived ? 1 : 0]);
 
     // Mark seats BOOKED and link to booking
     foreach ($found as $seat) {
-        $pdo->prepare('UPDATE "Seat" SET status = \'BOOKED\', "bookingId" = ?, "updatedAt" = NOW() WHERE id = ?')
+        $pdo->prepare('UPDATE "Seat" SET status = \'BOOKED\', "bookingId" = ? WHERE id = ?')
             ->execute([$bookingId, $seat['id']]);
     }
 

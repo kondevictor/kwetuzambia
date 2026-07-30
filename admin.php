@@ -7,11 +7,11 @@ require_once __DIR__ . '/includes/auth.php';
 $user = require_admin();
 $pdo  = db();
 
-$summary = $pdo->query('SELECT (SELECT COUNT(*) FROM "User") AS users, (SELECT COUNT(*) FROM "BusBooking" WHERE status = \'CONFIRMED\') AS bus_bookings, (SELECT SUM("commissionAmountMinor") FROM "CommissionRecord" WHERE "createdAt" > NOW() - INTERVAL \'30 days\') AS commission_30d, (SELECT COUNT(*) FROM "Operator" WHERE verified = false) AS unverified_operators')->fetch();
+$summary = $pdo->query('SELECT (SELECT COUNT(*) FROM "User") AS users, (SELECT COUNT(*) FROM "BusBooking" WHERE status = \'CONFIRMED\') AS bus_bookings, (SELECT SUM("commissionAmountMinor") FROM "Commission" WHERE "createdAt" > NOW() - INTERVAL \'30 days\') AS commission_30d, (SELECT COUNT(*) FROM "Operator" WHERE verified = false) AS unverified_operators')->fetch();
 
 $operators = $pdo->query('SELECT o.*, u.name AS owner_name, u.email FROM "Operator" o JOIN "User" u ON u.id = o."ownerId" ORDER BY o."createdAt" DESC LIMIT 30')->fetchAll();
 
-$refunds = $pdo->query('SELECT r.*, p."userId", u.name AS user_name FROM "Refund" r JOIN "Payment" p ON p.id = r."paymentId" JOIN "User" u ON u.id = p."userId" ORDER BY r."createdAt" DESC LIMIT 20')->fetchAll();
+$refunds = $pdo->query('SELECT r.* FROM "Refund" r ORDER BY r."createdAt" DESC LIMIT 20')->fetchAll();
 
 html_head('Admin — Kwetu');
 ?>
@@ -60,7 +60,7 @@ html_head('Admin — Kwetu');
       <?php if (empty($refunds)): ?><p class="text-sm text-slate-400">None.</p><?php endif; ?>
       <?php foreach ($refunds as $r): ?>
       <div class="bg-white rounded-xl border px-5 py-3 flex justify-between text-sm">
-        <div><span class="font-medium"><?= htmlspecialchars($r['user_name']) ?></span> · <?= htmlspecialchars($r['reason']) ?></div>
+        <div><?= htmlspecialchars($r['reason']) ?></div>
         <span class="font-semibold text-[#0B5D3B]"><?= format_zmw((int)$r['amountMinor']) ?></span>
       </div>
       <?php endforeach; ?>

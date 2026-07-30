@@ -5,7 +5,7 @@ require_once __DIR__ . '/includes/pricing.php';
 require_once __DIR__ . '/includes/money.php';
 
 $pdo = db();
-$stmt = $pdo->query('SELECT r.*, u.name AS owner_name FROM "RentalListing" r JOIN "User" u ON u.id = r."ownerId" WHERE r."isActive" = true ORDER BY r."createdAt" DESC LIMIT 50');
+$stmt = $pdo->query('SELECT pl.*, u.name AS owner_name FROM "PropertyListing" pl JOIN "User" u ON u.id = pl."ownerId" ORDER BY pl."createdAt" DESC LIMIT 50');
 $listings = $stmt->fetchAll();
 
 html_head('Rentals — Kwetu');
@@ -17,20 +17,14 @@ html_head('Rentals — Kwetu');
 
   <div class="mt-6 grid sm:grid-cols-2 gap-6">
     <?php foreach ($listings as $l):
-      $fee = placement_fee_for_rental($l['period']);
-      $imgs = json_decode($l['images'] ?? '[]', true);
-      $img = $imgs[0] ?? '';
+      $fee = (int)$l['placementFeeMinor'];
     ?>
     <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
-      <?php if ($img): ?>
-      <div class="h-40 bg-cover bg-center" style="background-image:url('<?= htmlspecialchars($img) ?>')"></div>
-      <?php else: ?>
       <div class="h-40 bg-slate-100 flex items-center justify-center text-4xl">🏠</div>
-      <?php endif; ?>
       <div class="p-4">
         <div class="font-semibold"><?= htmlspecialchars($l['title']) ?></div>
         <div class="text-sm text-slate-500"><?= htmlspecialchars($l['city']) ?> · <?= htmlspecialchars($l['period']) ?></div>
-        <div class="text-[#0B5D3B] font-bold mt-1"><?= format_zmw((int)$l['priceMinor']) ?>/month</div>
+        <div class="text-[#0B5D3B] font-bold mt-1"><?= format_zmw((int)$l['monthlyRentMinor']) ?>/month</div>
         <div class="text-xs text-slate-400">Platform placement fee: <?= format_zmw($fee) ?></div>
         <button onclick="contactRental('<?= $l['id'] ?>','<?= addslashes($l['title']) ?>',<?= $fee ?>)" class="btn-primary mt-3 w-full">Pay placement fee &amp; enquire</button>
       </div>

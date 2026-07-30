@@ -12,7 +12,7 @@ $txns = $pdo->query('SELECT lt.id, lt.description, SUM(CASE WHEN le.type = \'CRE
 
 $imbalanced = array_filter($txns, fn($t) => (int)$t['net'] !== 0);
 
-$total_commission = $pdo->query('SELECT COALESCE(SUM("commissionAmountMinor"),0) FROM "CommissionRecord" WHERE "createdAt" > NOW() - INTERVAL \'30 days\'')->fetchColumn();
+$total_commission = $pdo->query('SELECT COALESCE(SUM("commissionAmountMinor"),0) FROM "Commission" WHERE "createdAt" > NOW() - INTERVAL \'30 days\'')->fetchColumn();
 $total_revenue    = $pdo->query('SELECT COALESCE(SUM("amountMinor"),0) FROM "Payment" WHERE status = \'SUCCEEDED\' AND "createdAt" > NOW() - INTERVAL \'30 days\'')->fetchColumn();
 
 json_out([

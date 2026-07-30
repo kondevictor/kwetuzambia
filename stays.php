@@ -14,12 +14,12 @@ $properties = [];
 if ($city) {
     $nights = ($checkin && $checkout) ? max(1, (int)((strtotime($checkout) - strtotime($checkin)) / 86400)) : 1;
     $stmt = $pdo->prepare('
-        SELECT p.id, p.name, p.description, p.city, p.images,
-               MIN(r."basePricePerNightMinor") AS min_price
+        SELECT p.id, p.name, p.description, p.city,
+               MIN(r."ratePerNightMinor") AS min_price
         FROM "Property" p
         JOIN "Room" r ON r."propertyId" = p.id
-        WHERE p.city ILIKE ? AND p."isActive" = true
-        GROUP BY p.id, p.name, p.description, p.city, p.images
+        WHERE p.city ILIKE ?
+        GROUP BY p.id, p.name, p.description, p.city
         ORDER BY min_price ASC
     ');
     $stmt->execute(["%$city%"]);
@@ -52,16 +52,10 @@ html_head('Stays — Kwetu');
 
   <div class="mt-8 grid sm:grid-cols-2 gap-6">
     <?php foreach ($properties as $p):
-      $bd = compute_commission_on_top('ACCOMMODATION', (int)$p['min_price']);
-      $imgs = json_decode($p['images'] ?? '[]', true);
-      $img = $imgs[0] ?? '';
+      $bd = compute_commission_on_top('ACCOMMODATION', (int)($p['min_price'] ?? 0));
     ?>
     <a href="/stays/<?= $p['id'] ?>" class="bg-white rounded-xl shadow-sm border overflow-hidden hover:shadow-md transition-shadow block">
-      <?php if ($img): ?>
-      <div class="h-44 bg-slate-100 bg-cover bg-center" style="background-image:url('<?= htmlspecialchars($img) ?>')"></div>
-      <?php else: ?>
       <div class="h-44 bg-slate-100 flex items-center justify-center text-4xl">🏨</div>
-      <?php endif; ?>
       <div class="p-4">
         <div class="font-semibold"><?= htmlspecialchars($p['name']) ?></div>
         <div class="text-sm text-slate-500"><?= htmlspecialchars($p['city']) ?></div>

@@ -28,7 +28,7 @@ $room->execute([$roomId]);
 $room = $room->fetch();
 if (!$room) { json_out(['error'=>'Room not found'], 404); }
 
-$bd = compute_commission_on_top('ACCOMMODATION', (int)$room['basePricePerNightMinor']);
+$bd = compute_commission_on_top('ACCOMMODATION', (int)$room['ratePerNightMinor']);
 $totalBase = $bd['baseAmountMinor'] * $nights;
 $totalFee  = $bd['commissionAmountMinor'] * $nights;
 $totalVat  = $bd['vatAmountMinor'] * $nights;
@@ -37,19 +37,17 @@ $pdo->beginTransaction();
 try {
     $bookingId = cuid();
     $result = run_checkout(
-        userId: $user['id'],
-        vertical: 'ACCOMMODATION',
-        baseAmountMinor: $totalBase,
-        commissionAmountMinor: $totalFee,
-        vatAmountMinor: $totalVat,
-        method: $method,
-        msisdnOrCardRef: $msisdn,
-        idempotencyKey: 'stay-' . $bookingId,
-        description: "Stay booking $nights night(s)"
+        $user['id'],
+        'ACCOMMODATION',
+        $totalBase,
+        $method,
+        $msisdn,
+        'stay-' . $bookingId,
+        "Stay booking $nights night(s)"
     );
 
-    $pdo->prepare('INSERT INTO "StayBooking" (id, "userId", "roomId", "checkIn", "checkOut", "nights", "totalMinor", "feeWaived", status, "createdAt", "updatedAt") VALUES (?,?,?,?,?,?,?,?,\'CONFIRMED\',NOW(),NOW())')
-        ->execute([$bookingId, $user['id'], $roomId, $checkin, $checkout, $nights, $totalBase+$totalFee+$totalVat, $result['feeWaived'] ? 1 : 0]);
+    $pdo->prepare('INSERT INTO "StayBooking" (id, "userId", "roomId", "checkIn", "checkOut", "totalMinor", "feeWaived", status, "createdAt") VALUES (?,?,?,?,?,?,?,\'CONFIRMED\',NOW())')
+        ->execute([$bookingId, $user['id'], $roomId, $checkin, $checkout, $totalBase+$totalFee+$totalVat, $result['feeWaived'] ? 1 : 0]);
 
     $pdo->commit();
     json_out(['bookingId'=>$bookingId,'feeWaived'=>$result['feeWaived']], 201);

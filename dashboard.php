@@ -25,6 +25,7 @@ $svcs = $pdo->prepare('SELECT b.*, sl.title FROM "ServiceBooking" b JOIN "Servic
 $svcs->execute([$uid]); $svcs = $svcs->fetchAll();
 
 $pols = $pdo->prepare('SELECT p.*, q."productType", q."premiumMinor" FROM "InsurancePolicy" p JOIN "InsuranceQuote" q ON q.id = p."quoteId" WHERE p."userId" = ? ORDER BY p."createdAt" DESC LIMIT 10');
+
 $pols->execute([$uid]); $pols = $pols->fetchAll();
 
 $tier = loyalty_tier_for((int)$wallet['loyaltyPoints']);

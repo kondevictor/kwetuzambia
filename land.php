@@ -5,7 +5,7 @@ require_once __DIR__ . '/includes/pricing.php';
 require_once __DIR__ . '/includes/money.php';
 
 $pdo = db();
-$stmt = $pdo->query('SELECT l.*, u.name AS seller_name FROM "LandListing" l JOIN "User" u ON u.id = l."sellerId" WHERE l."isActive" = true ORDER BY l."createdAt" DESC LIMIT 50');
+$stmt = $pdo->query('SELECT l.*, u.name AS owner_name FROM "LandListing" l JOIN "User" u ON u.id = l."ownerId" ORDER BY l."createdAt" DESC LIMIT 50');
 $listings = $stmt->fetchAll();
 
 html_head('Land — Kwetu');
@@ -17,7 +17,7 @@ html_head('Land — Kwetu');
 
   <div class="mt-6 grid sm:grid-cols-2 gap-6">
     <?php foreach ($listings as $l):
-      $fee = placement_fee_for_land((int)$l['askingPriceMinor']);
+      $fee = placement_fee_for_land((int)$l['priceMinor']);
       $imgs = json_decode($l['images'] ?? '[]', true);
       $img = $imgs[0] ?? '';
     ?>
@@ -30,7 +30,7 @@ html_head('Land — Kwetu');
       <div class="p-4">
         <div class="font-semibold"><?= htmlspecialchars($l['title']) ?></div>
         <div class="text-sm text-slate-500"><?= htmlspecialchars($l['location']) ?> · <?= htmlspecialchars($l['sizeDescription'] ?? '') ?></div>
-        <div class="text-[#0B5D3B] font-bold mt-1"><?= format_zmw((int)$l['askingPriceMinor']) ?></div>
+        <div class="text-[#0B5D3B] font-bold mt-1"><?= format_zmw((int)$l['priceMinor']) ?></div>
         <div class="text-xs text-slate-400">Platform fee: <?= format_zmw($fee) ?></div>
         <button onclick="buyLand('<?= $l['id'] ?>','<?= addslashes($l['title']) ?>',<?= $fee ?>)" class="btn-primary mt-3 w-full">Pay fee &amp; enquire</button>
       </div>

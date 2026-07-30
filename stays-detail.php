@@ -17,37 +17,27 @@ $rooms->execute([$id]);
 $rooms = $rooms->fetchAll();
 
 $user = current_user();
-$imgs = json_decode($prop['images'] ?? '[]', true);
 html_head(htmlspecialchars($prop['name']) . ' — Kwetu');
 ?>
 <div class="mx-auto max-w-4xl px-4 py-12">
-  <?php if (!empty($imgs)): ?>
-  <div class="grid grid-cols-3 gap-2 rounded-xl overflow-hidden h-64">
-    <?php foreach (array_slice($imgs,0,3) as $i => $src): ?>
-    <div class="bg-cover bg-center <?= $i===0 ? 'col-span-2' : '' ?>" style="background-image:url('<?= htmlspecialchars($src) ?>')"></div>
-    <?php endforeach; ?>
-  </div>
-  <?php else: ?>
   <div class="h-64 bg-slate-100 rounded-xl flex items-center justify-center text-6xl">🏨</div>
-  <?php endif; ?>
 
   <h1 class="text-2xl font-bold text-[#0B5D3B] mt-6"><?= htmlspecialchars($prop['name']) ?></h1>
-  <p class="text-slate-500"><?= htmlspecialchars($prop['city']) ?> · <?= htmlspecialchars($prop['type']) ?></p>
-  <?php if ($prop['starRating']): ?><p class="text-sm text-amber-500 mt-1"><?= str_repeat('★', (int)$prop['starRating']) ?></p><?php endif; ?>
+  <p class="text-slate-500"><?= htmlspecialchars($prop['city']) ?></p>
   <p class="mt-3 text-slate-700"><?= nl2br(htmlspecialchars($prop['description'])) ?></p>
 
   <div class="mt-8 space-y-4">
     <h2 class="font-semibold">Available rooms</h2>
     <?php foreach ($rooms as $r):
-      $bd = compute_commission_on_top('ACCOMMODATION', (int)$r['basePricePerNightMinor']);
+      $bd = compute_commission_on_top('ACCOMMODATION', (int)$r['ratePerNightMinor']);
     ?>
     <div class="bg-white rounded-xl shadow-sm border p-5 flex justify-between items-center gap-4">
       <div>
-        <div class="font-medium"><?= htmlspecialchars($r['name']) ?></div>
-        <div class="text-sm text-slate-500">Max <?= (int)$r['maxGuests'] ?> guests · <?= htmlspecialchars($r['bedType'] ?? '') ?></div>
+        <div class="font-medium"><?= htmlspecialchars($r['type']) ?></div>
+        <div class="text-sm text-slate-500">Qty: <?= (int)$r['quantity'] ?></div>
         <div class="text-[#0B5D3B] font-bold mt-1"><?= format_zmw($bd['totalAmountMinor']) ?>/night <span class="font-normal text-slate-400 text-xs">incl. fee</span></div>
       </div>
-      <button onclick="openBook('<?= $r['id'] ?>','<?= addslashes($r['name']) ?>',<?= $bd['baseAmountMinor'] ?>,<?= $bd['commissionAmountMinor'] ?>,<?= $bd['vatAmountMinor'] ?>)" class="btn-primary shrink-0">Book</button>
+      <button onclick="openBook('<?= $r['id'] ?>','<?= addslashes($r['type']) ?>',<?= $bd['baseAmountMinor'] ?>,<?= $bd['commissionAmountMinor'] ?>,<?= $bd['vatAmountMinor'] ?>)" class="btn-primary shrink-0">Book</button>
     </div>
     <?php endforeach; ?>
   </div>

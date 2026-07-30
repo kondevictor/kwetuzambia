@@ -20,8 +20,8 @@ $otp     = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 $expires = date('Y-m-d H:i:s', time() + 600);
 
 // Upsert OTP record
-$pdo->prepare('DELETE FROM "OtpCode" WHERE phone = ?')->execute([$phone]);
-$pdo->prepare('INSERT INTO "OtpCode" (id, phone, code, "expiresAt", "createdAt") VALUES (?,?,?,?,NOW())')
+$pdo->prepare('UPDATE "PhoneOtp" SET consumed = true WHERE phone = ? AND consumed = false')->execute([$phone]);
+$pdo->prepare('INSERT INTO "PhoneOtp" (id, phone, code, "expiresAt", "createdAt") VALUES (?,?,?,?,NOW())')
     ->execute([cuid(), $phone, $otp, $expires]);
 
 // In production: send via SMS gateway. For now, return it (dev mode).

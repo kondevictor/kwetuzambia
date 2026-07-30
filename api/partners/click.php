@@ -1,18 +1,21 @@
 <?php
 require_once __DIR__ . '/../../includes/db.php';
+require_once __DIR__ . '/../../includes/auth.php';
 
 $id = $_GET['id'] ?? '';
 if (!$id) { header('Location: /partners'); exit; }
 
 $pdo = db();
-$deal = $pdo->prepare('SELECT * FROM "PartnerDeal" WHERE id = ? AND "isActive" = true');
-$deal->execute([$id]);
-$deal = $deal->fetch();
-if (!$deal) { header('Location: /partners'); exit; }
+$partner = $pdo->prepare('SELECT * FROM "ReferralPartner" WHERE id = ?');
+$partner->execute([$id]);
+$partner = $partner->fetch();
+if (!$partner) { header('Location: /partners'); exit; }
 
 // Track click
-$pdo->prepare('UPDATE "PartnerDeal" SET clicks = clicks + 1, "updatedAt" = NOW() WHERE id = ?')->execute([$id]);
+$user = current_user();
+$clickId = cuid();
+$pdo->prepare('INSERT INTO "ReferralClick" (id, "partnerId", "userId", "createdAt") VALUES (?,?,?,NOW())')
+    ->execute([$clickId, $id, $user['id'] ?? null]);
 
-$redirect = $deal['affiliateUrl'] ?? $deal['websiteUrl'] ?? '/partners';
-header('Location: ' . $redirect);
+header('Location: ' . $partner['outboundUrl']);
 exit;

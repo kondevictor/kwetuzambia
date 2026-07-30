@@ -16,7 +16,7 @@ $stmt = $pdo->prepare('SELECT * FROM "User" WHERE email = ?');
 $stmt->execute([$email]);
 $user = $stmt->fetch();
 
-if (!$user || !password_verify($password, $user['password'])) {
+if (!$user || !password_verify($password, $user['passwordHash'])) {
     json_out(['error'=>'Invalid email or password'], 401);
 }
 

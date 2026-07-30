@@ -11,13 +11,13 @@ $code  = trim($data['code'] ?? '');
 if (!$phone || !$code) { json_out(['error'=>'Phone and code required'], 400); }
 
 $pdo = db();
-$otpRow = $pdo->prepare('SELECT * FROM "OtpCode" WHERE phone = ? AND code = ? AND "expiresAt" > NOW()');
+$otpRow = $pdo->prepare('SELECT * FROM "PhoneOtp" WHERE phone = ? AND code = ? AND "expiresAt" > NOW() AND consumed = false');
 $otpRow->execute([$phone, $code]);
 $otpRow = $otpRow->fetch();
 
 if (!$otpRow) { json_out(['error'=>'Invalid or expired OTP'], 401); }
 
-$pdo->prepare('DELETE FROM "OtpCode" WHERE phone = ?')->execute([$phone]);
+$pdo->prepare('UPDATE "PhoneOtp" SET consumed = true WHERE id = ?')->execute([$otpRow['id']]);
 
 $user = $pdo->prepare('SELECT * FROM "User" WHERE phone = ?');
 $user->execute([$phone]);

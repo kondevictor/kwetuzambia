@@ -22,7 +22,7 @@ function run_checkout(
     $wallet = $w->fetch();
     if (!$wallet) {
         $wid = cuid();
-        $pdo->prepare('INSERT INTO "Wallet" (id, "userId", "balanceMinor", "loyaltyPoints", "completedBookingsCount", "updatedAt") VALUES (?,?,0,0,0,NOW())')
+        $pdo->prepare('INSERT INTO "Wallet" (id, "userId", "updatedAt") VALUES (?,?,NOW())')
             ->execute([$wid, $user_id]);
         $wallet = ['id' => $wid, 'completedBookingsCount' => 0, 'loyaltyPoints' => 0];
     }
@@ -112,7 +112,7 @@ function run_placement_fee_checkout(
 function run_refund(string $payment_id, string $reason, string $idempotency_key): array {
     $pdo = db();
 
-    $stmt = $pdo->prepare('SELECT p.*, c.* FROM "Payment" p LEFT JOIN "Commission" c ON c."paymentId" = p.id WHERE p.id = ?');
+    $stmt = $pdo->prepare('SELECT p.id, p.status, p."amountMinor", p.reference, c."baseAmountMinor", c."commissionAmountMinor", c."vatAmountMinor" FROM "Payment" p LEFT JOIN "Commission" c ON c."paymentId" = p.id WHERE p.id = ?');
     $stmt->execute([$payment_id]);
     $payment = $stmt->fetch();
 

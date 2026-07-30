@@ -8,17 +8,16 @@ $category = trim($_GET['category'] ?? '');
 $city     = trim($_GET['city'] ?? '');
 
 $pdo = db();
-$where = ['sl."isActive" = true'];
+$where = ['1=1'];
 $params = [];
 if ($category) { $where[] = 'sl.category = ?'; $params[] = $category; }
-if ($city)     { $where[] = 'sl.city ILIKE ?'; $params[] = "%$city%"; }
 
 $whereStr = implode(' AND ', $where);
-$stmt = $pdo->prepare("SELECT sl.*, u.name AS provider_name FROM \"ServiceListing\" sl JOIN \"User\" u ON u.id = sl.\"providerId\" WHERE $whereStr ORDER BY sl.\"basePriceMinor\" ASC LIMIT 50");
+$stmt = $pdo->prepare("SELECT sl.*, u.name AS provider_name FROM \"ServiceListing\" sl JOIN \"User\" u ON u.id = sl.\"ownerId\" WHERE $whereStr ORDER BY sl.\"priceMinor\" ASC LIMIT 50");
 $stmt->execute($params);
 $listings = $stmt->fetchAll();
 
-$cats = $pdo->query('SELECT DISTINCT category FROM "ServiceListing" WHERE "isActive" = true ORDER BY category')->fetchAll(PDO::FETCH_COLUMN);
+$cats = $pdo->query('SELECT DISTINCT category FROM "ServiceListing" ORDER BY category')->fetchAll(PDO::FETCH_COLUMN);
 
 html_head('Services — Kwetu');
 ?>
@@ -47,12 +46,12 @@ html_head('Services — Kwetu');
 
   <div class="mt-6 space-y-4">
     <?php foreach ($listings as $l):
-      $bd = compute_commission_on_top('SERVICE', (int)$l['basePriceMinor']);
+      $bd = compute_commission_on_top('SERVICE', (int)$l['priceMinor']);
     ?>
     <div class="bg-white rounded-xl shadow-sm border p-5 flex justify-between items-center gap-4">
       <div>
         <div class="font-medium"><?= htmlspecialchars($l['title']) ?></div>
-        <div class="text-sm text-slate-500"><?= htmlspecialchars($l['category']) ?> · <?= htmlspecialchars($l['city'] ?? '') ?> · by <?= htmlspecialchars($l['provider_name']) ?></div>
+        <div class="text-sm text-slate-500"><?= htmlspecialchars($l['category']) ?> · by <?= htmlspecialchars($l['provider_name']) ?></div>
         <div class="text-[#0B5D3B] font-bold mt-1"><?= format_zmw($bd['totalAmountMinor']) ?> <span class="font-normal text-slate-400 text-xs">incl. fee</span></div>
       </div>
       <button onclick="bookService('<?= $l['id'] ?>','<?= addslashes($l['title']) ?>',<?= $bd['totalAmountMinor'] ?>)" class="btn-primary shrink-0">Book</button>

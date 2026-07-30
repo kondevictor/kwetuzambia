@@ -5,7 +5,7 @@ require_once __DIR__ . '/includes/pricing.php';
 require_once __DIR__ . '/includes/money.php';
 
 $pdo = db();
-$stmt = $pdo->query('SELECT e.*, COUNT(tt.id) AS tier_count FROM "Event" e LEFT JOIN "TicketTier" tt ON tt."eventId" = e.id WHERE e.status = \'PUBLISHED\' AND e."startAt" >= NOW() GROUP BY e.id ORDER BY e."startAt" ASC LIMIT 50');
+$stmt = $pdo->query('SELECT e.* FROM "Event" e WHERE e."startsAt" >= NOW() ORDER BY e."startsAt" ASC LIMIT 50');
 $events = $stmt->fetchAll();
 
 html_head('Events — Kwetu');
@@ -19,33 +19,32 @@ html_head('Events — Kwetu');
 
   <div class="mt-6 grid sm:grid-cols-2 gap-6">
     <?php foreach ($events as $ev):
-      $imgs = json_decode($ev['images'] ?? '[]', true);
-      $img = $imgs[0] ?? '';
-      $tiers = $pdo->prepare('SELECT * FROM "TicketTier" WHERE "eventId" = ? ORDER BY "basePriceMinor" ASC');
+      $tiers = $pdo->prepare('SELECT * FROM "TicketTier" WHERE "eventId" = ? ORDER BY "priceMinor" ASC');
       $tiers->execute([$ev['id']]);
       $tiers = $tiers->fetchAll();
       $cheapest = $tiers[0] ?? null;
-      $bd = $cheapest ? compute_commission_on_top('EVENT', (int)$cheapest['basePriceMinor']) : null;
+      $bd = $cheapest ? compute_commission_on_top('EVENT', (int)$cheapest['priceMinor']) : null;
     ?>
     <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
-      <?php if ($img): ?>
-      <div class="h-40 bg-cover bg-center" style="background-image:url('<?= htmlspecialchars($img) ?>')"></div>
-      <?php else: ?>
       <div class="h-40 bg-slate-100 flex items-center justify-center text-4xl">🎫</div>
-      <?php endif; ?>
       <div class="p-4">
         <div class="font-semibold"><?= htmlspecialchars($ev['name']) ?></div>
-        <div class="text-sm text-slate-500"><?= date('D d M Y, H:i', strtotime($ev['startAt'])) ?> · <?= htmlspecialchars($ev['venue']) ?></div>
+        <div class="text-sm text-slate-500"><?= date('D d M Y, H:i', strtotime($ev['startsAt'])) ?> · <?= htmlspecialchars($ev['venue']) ?></div>
         <?php if ($bd): ?>
         <div class="text-[#0B5D3B] font-bold mt-2">From <?= format_zmw($bd['totalAmountMinor']) ?></div>
         <?php endif; ?>
         <div class="mt-3 space-y-2">
           <?php foreach ($tiers as $t):
-            $tbd = compute_commission_on_top('EVENT', (int)$t['basePriceMinor']);
+            $tbd = compute_commission_on_top('EVENT', (int)$t['priceMinor']);
+            $remaining = $t['quantity'] - $t['sold'];
           ?>
           <div class="flex justify-between items-center border rounded-lg px-3 py-2 text-sm">
-            <div><?= htmlspecialchars($t['name']) ?> — <?= format_zmw($tbd['totalAmountMinor']) ?></div>
+            <div><?= htmlspecialchars($t['name']) ?> — <?= format_zmw($tbd['totalAmountMinor']) ?> (<?= $remaining ?> left)</div>
+            <?php if ($remaining > 0): ?>
             <button onclick="buyTicket('<?= $t['id'] ?>','<?= addslashes($t['name']) ?> @ <?= addslashes($ev['name']) ?>',<?= $tbd['totalAmountMinor'] ?>)" class="btn-primary text-xs py-1 px-3">Buy</button>
+            <?php else: ?>
+            <span class="text-xs text-slate-400">Sold out</span>
+            <?php endif; ?>
           </div>
           <?php endforeach; ?>
         </div>
@@ -76,9 +75,9 @@ html_head('Events — Kwetu');
 </div>
 
 <script>
-let _tierId, _total;
+let _tierId;
 function buyTicket(tierId, title, total) {
-  _tierId=tierId; _total=total;
+  _tierId=tierId;
   document.getElementById('modal-title').textContent = title + ' — ZMW '+(total/100).toFixed(2);
   document.getElementById('modal').classList.remove('hidden');
 }

@@ -18,30 +18,28 @@ $msisdn        = trim($data['msisdnOrCardRef'] ?? '');
 if (!$listingId || !$method || !$msisdn) { json_out(['error'=>'Missing required fields'], 400); }
 
 $pdo     = db();
-$listing = $pdo->prepare('SELECT * FROM "ServiceListing" WHERE id = ? AND "isActive" = true');
+$listing = $pdo->prepare('SELECT * FROM "ServiceListing" WHERE id = ?');
 $listing->execute([$listingId]);
 $listing = $listing->fetch();
 if (!$listing) { json_out(['error'=>'Listing not found'], 404); }
 
-$bd = compute_commission_on_top('SERVICE', (int)$listing['basePriceMinor']);
+$bd = compute_commission_on_top('SERVICE', (int)$listing['priceMinor']);
 
 $pdo->beginTransaction();
 try {
     $bookingId = cuid();
     $result = run_checkout(
-        userId: $user['id'],
-        vertical: 'SERVICE',
-        baseAmountMinor: $bd['baseAmountMinor'],
-        commissionAmountMinor: $bd['commissionAmountMinor'],
-        vatAmountMinor: $bd['vatAmountMinor'],
-        method: $method,
-        msisdnOrCardRef: $msisdn,
-        idempotencyKey: 'svc-' . $bookingId,
-        description: "Service booking: {$listing['title']}"
+        $user['id'],
+        'SERVICE',
+        $bd['baseAmountMinor'],
+        $method,
+        $msisdn,
+        'svc-' . $bookingId,
+        "Service booking: {$listing['title']}"
     );
 
-    $pdo->prepare('INSERT INTO "ServiceBooking" (id, "userId", "listingId", "scheduledDate", "totalMinor", "feeWaived", status, "createdAt", "updatedAt") VALUES (?,?,?,?,?,?,\'CONFIRMED\',NOW(),NOW())')
-        ->execute([$bookingId, $user['id'], $listingId, $scheduledDate ?: null, $bd['totalAmountMinor'], $result['feeWaived'] ? 1 : 0]);
+    $pdo->prepare('INSERT INTO "ServiceBooking" (id, "userId", "listingId", "totalMinor", "feeWaived", status, "createdAt") VALUES (?,?,?,?,?,\'REQUESTED\',NOW())')
+        ->execute([$bookingId, $user['id'], $listingId, $bd['totalAmountMinor'], $result['feeWaived'] ? 1 : 0]);
 
     $pdo->commit();
     json_out(['bookingId'=>$bookingId,'feeWaived'=>$result['feeWaived']], 201);

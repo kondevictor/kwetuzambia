@@ -6,7 +6,9 @@
       "Bash(npx prisma *)",
       "Bash(python3 -)",
       "Bash(npx tsx *)",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "mcp__89ac851e-2b03-4219-9d99-29b3177242f1__list_teams",
+      "mcp__89ac851e-2b03-4219-9d99-29b3177242f1__list_projects"
     ]
   }
 }

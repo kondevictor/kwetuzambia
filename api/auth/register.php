@@ -24,12 +24,12 @@ if ($exists->fetch()) { json_out(['error'=>'Email already registered'], 409); }
 $id   = cuid();
 $hash = password_hash($pass, PASSWORD_BCRYPT);
 
-$pdo->prepare('INSERT INTO "User" (id, name, email, phone, password, role, "createdAt", "updatedAt") VALUES (?,?,?,?,?,\'CUSTOMER\',NOW(),NOW())')
+$pdo->prepare('INSERT INTO "User" (id, name, email, phone, "passwordHash", role, "createdAt") VALUES (?,?,?,?,?,\'CONSUMER\',NOW())')
     ->execute([$id, $name, $email, $phone ?: null, $hash]);
 
 // Create wallet + grant welcome bonus
 $wid = cuid();
-$pdo->prepare('INSERT INTO "Wallet" (id, "userId", "balanceMinor", "loyaltyPoints", "completedBookingsCount", "createdAt", "updatedAt") VALUES (?,?,0,?,0,NOW(),NOW())')
+$pdo->prepare('INSERT INTO "Wallet" (id, "userId", "balanceMinor", "loyaltyPoints", "completedBookingsCount", "updatedAt") VALUES (?,?,0,?,0,NOW())')
     ->execute([$wid, $id, WELCOME_BONUS_POINTS]);
 
 $user = $pdo->prepare('SELECT * FROM "User" WHERE id = ?');
